@@ -1,62 +1,27 @@
-const API_URL = 'http://localhost:5000/api';
-let token = localStorage.getItem('token');
+const API = 'http://localhost:5000/api';
+let user = null;
+let todos = [];
 
-if (token) {
-    showApp();
-    loadTodos();
-}
-
-function showRegister() {
-    document.getElementById('login-form').classList.add('hidden');
-    document.getElementById('register-form').classList.remove('hidden');
-}
-
-function showLogin() {
-    document.getElementById('register-form').classList.add('hidden');
-    document.getElementById('login-form').classList.remove('hidden');
-}
-
-function showApp() {
-    document.getElementById('auth-container').classList.add('hidden');
-    document.getElementById('app-container').classList.remove('hidden');
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    document.getElementById('user-name').textContent = user.name || '';
-}
-
-function showAuth() {
-    document.getElementById('app-container').classList.add('hidden');
-    document.getElementById('auth-container').classList.remove('hidden');
-}
+// Auth functions
+function getToken() { return localStorage.getItem('token'); }
+function setToken(t) { localStorage.setItem('token', t); }
 
 async function handleLogin() {
     const email = document.getElementById('login-email').value;
     const password = document.getElementById('login-password').value;
-    const errorDiv = document.getElementById('login-error');
-
-    errorDiv.classList.add('hidden');
-
-    try {
-        const response = await fetch(`${API_URL}/auth/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password })
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-            errorDiv.textContent = data.message || 'Login failed';
-            errorDiv.classList.remove('hidden');
-        } else {
-            token = data.token;
-            localStorage.setItem('token', token);
-            localStorage.setItem('user', JSON.stringify(data.user));
-            showApp();
-            loadTodos();
-        }
-    } catch (error) {
-        errorDiv.textContent = 'Network error occurred';
-        errorDiv.classList.remove('hidden');
+    const res = await fetch(`${API}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+    });
+    const data = await res.json();
+    if (res.ok) {
+        setToken(data.token);
+        user = data.user;
+        showApp();
+        loadTodos();
+    } else {
+        alert(data.message);
     }
 }
 
@@ -64,147 +29,174 @@ async function handleRegister() {
     const name = document.getElementById('register-name').value;
     const email = document.getElementById('register-email').value;
     const password = document.getElementById('register-password').value;
-    const errorDiv = document.getElementById('register-error');
-
-    errorDiv.classList.add('hidden');
-
-    try {
-        const response = await fetch(`${API_URL}/auth/register`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, email, password })
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-            errorDiv.textContent = data.message || 'Registration failed';
-            errorDiv.classList.remove('hidden');
-        } else {
-            token = data.token;
-            localStorage.setItem('token', token);
-            localStorage.setItem('user', JSON.stringify(data.user));
-            showApp();
-            loadTodos();
-        }
-    } catch (error) {
-        errorDiv.textContent = 'Network error occurred';
-        errorDiv.classList.remove('hidden');
+    const res = await fetch(`${API}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, password })
+    });
+    const data = await res.json();
+    if (res.ok) {
+        setToken(data.token);
+        user = data.user;
+        showApp();
+        loadTodos();
+    } else {
+        alert(data.message);
     }
 }
 
 function handleLogout() {
-    token = null;
     localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    user = null;
+    todos = [];
     showAuth();
 }
 
-async function loadTodos() {
-    try {
-        const response = await fetch(`${API_URL}/todos`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const todos = await response.json();
-        renderTodos(todos);
-    } catch (error) {
-        console.error('Failed to load todos');
-    }
+function showAuth() {
+    document.getElementById('auth-container').classList.remove('hidden');
+    document.getElementById('app-container').classList.add('hidden');
 }
 
-function renderTodos(todos) {
-    const todoList = document.getElementById('todo-list');
-    const emptyState = document.getElementById('empty-state');
+function showApp() {
+    document.getElementById('auth-container').classList.add('hidden');
+    document.getElementById('app-container').classList.remove('hidden');
+    document.getElementById('user-name').textContent = `Hello, ${user.name}`;
+}
+
+function showLogin() {
+    document.getElementById('login-form').classList.remove('hidden');
+    document.getElementById('register-form').classList.add('hidden');
+}
+
+function showRegister() {
+    document.getElementById('login-form').classList.add('hidden');
+    document.getElementById('register-form').classList.remove('hidden');
+}
+
+// Todo functions
+async function loadTodos() {
+    const res = await fetch(`${API}/todos`, {
+        headers: { 'Authorization': `Bearer ${getToken()}` }
+    });
+    todos = await res.json();
+    renderTodos();
+}
+
+function renderTodos() {
+    const list = document.getElementById('todo-list');
+    const empty = document.getElementById('empty-state');
 
     if (todos.length === 0) {
-        todoList.innerHTML = '';
-        emptyState.classList.remove('hidden');
-    } else {
-        emptyState.classList.add('hidden');
-        todoList.innerHTML = todos.map(todo => `
-            <div class="bg-white border rounded-lg p-4 flex items-center gap-4">
-                <input type="checkbox" ${todo.completed ? 'checked' : ''} 
-                    onchange="toggleTodo('${todo._id}')"
-                    class="w-5 h-5 rounded border-gray-300">
-                <div class="flex-1">
-                    <h3 class="font-medium ${todo.completed ? 'line-through text-gray-400' : ''}">${todo.title}</h3>
-                    ${todo.description ? `<p class="text-sm text-gray-500">${todo.description}</p>` : ''}
-                </div>
-                <button onclick="deleteTodo('${todo._id}')" class="text-red-500 hover:text-red-700">
-                    Delete
-                </button>
-            </div>
-        `).join('');
+        list.innerHTML = '';
+        empty.classList.remove('hidden');
+        updateStats();
+        return;
     }
 
-    updateStats(todos);
+    empty.classList.add('hidden');
+    list.innerHTML = todos.map(t => `
+        <div class="bg-white border p-4 rounded flex items-center gap-4 ${t.completed ? 'opacity-50' : ''}">
+            <input type="checkbox" ${t.completed ? 'checked' : ''} onchange="toggleComplete('${t._id}')">
+            <div class="flex-1">
+                <h3 class="${t.completed ? 'line-through' : ''}">${t.title}</h3>
+                <p class="text-sm text-gray-500">${t.description || ''}</p>
+            </div>
+            <button onclick="openEditModal('${t._id}')" class="text-blue-500">Edit</button>
+            <button onclick="handleDeleteTodo('${t._id}')" class="text-red-500">Delete</button>
+        </div>
+    `).join('');
+    updateStats();
 }
 
-function updateStats(todos) {
-    const total = todos.length;
-    const completed = todos.filter(t => t.completed).length;
-    const pending = total - completed;
-
-    document.getElementById('stat-total').textContent = total;
-    document.getElementById('stat-completed').textContent = completed;
-    document.getElementById('stat-pending').textContent = pending;
+function updateStats() {
+    document.getElementById('stat-total').textContent = todos.length;
+    document.getElementById('stat-completed').textContent = todos.filter(t => t.completed).length;
+    document.getElementById('stat-pending').textContent = todos.filter(t => !t.completed).length;
 }
 
 async function handleAddTodo() {
-    const title = document.getElementById('todo-title').value.trim();
-    const description = document.getElementById('todo-description').value.trim();
-
-    if (!title) return;
-
-    try {
-        await fetch(`${API_URL}/todos`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({ title, description })
-        });
-
-        document.getElementById('todo-title').value = '';
-        document.getElementById('todo-description').value = '';
-        loadTodos();
-    } catch (error) {
-        console.error('Failed to add todo');
-    }
+    const title = document.getElementById('todo-title').value;
+    const description = document.getElementById('todo-description').value;
+    if (!title) return alert('Title required');
+    const res = await fetch(`${API}/todos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
+        body: JSON.stringify({ title, description })
+    });
+    const todo = await res.json();
+    todos.unshift(todo);
+    renderTodos();
+    document.getElementById('todo-title').value = '';
+    document.getElementById('todo-description').value = '';
 }
 
-async function toggleTodo(id) {
-    try {
-        const response = await fetch(`${API_URL}/todos`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const todos = await response.json();
-        const todo = todos.find(t => t._id === id);
-
-        await fetch(`${API_URL}/todos/${id}`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({ completed: !todo.completed })
-        });
-
-        loadTodos();
-    } catch (error) {
-        console.error('Failed to toggle todo');
-    }
+async function toggleComplete(id) {
+    const todo = todos.find(t => t._id === id);
+    const res = await fetch(`${API}/todos/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
+        body: JSON.stringify({ completed: !todo.completed })
+    });
+    const updated = await res.json();
+    todos = todos.map(t => t._id === id ? updated : t);
+    renderTodos();
 }
 
-async function deleteTodo(id) {
-    try {
-        await fetch(`${API_URL}/todos/${id}`, {
-            method: 'DELETE',
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        loadTodos();
-    } catch (error) {
-        console.error('Failed to delete todo');
-    }
+function openEditModal(id) {
+    const todo = todos.find(t => t._id === id);
+    document.getElementById('edit-todo-id').value = id;
+    document.getElementById('edit-title').value = todo.title;
+    document.getElementById('edit-description').value = todo.description || '';
+    document.getElementById('edit-modal').classList.remove('hidden');
 }
+
+function closeEditModal() {
+    document.getElementById('edit-modal').classList.add('hidden');
+}
+
+async function handleUpdateTodo() {
+    const id = document.getElementById('edit-todo-id').value;
+    const title = document.getElementById('edit-title').value;
+    const description = document.getElementById('edit-description').value;
+    const res = await fetch(`${API}/todos/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
+        body: JSON.stringify({ title, description })
+    });
+    const updated = await res.json();
+    todos = todos.map(t => t._id === id ? updated : t);
+    renderTodos();
+    closeEditModal();
+}
+
+async function handleDeleteTodo(id) {
+    await fetch(`${API}/todos/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${getToken()}` }
+    });
+    todos = todos.filter(t => t._id !== id);
+    renderTodos();
+}
+
+// Init
+async function init() {
+    const token = getToken();
+    if (token) {
+        try {
+            const res = await fetch(`${API}/auth/me`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                user = data.user;
+                showApp();
+                loadTodos();
+                return;
+            }
+        } catch (e) { }
+        localStorage.removeItem('token');
+    }
+    showAuth();
+}
+
+init();
