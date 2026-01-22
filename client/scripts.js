@@ -15,7 +15,25 @@ function showRegister() {
                 
                 errorDiv.classList.add('hidden');
                 
-                console.log('Login attempt:', email, password);
+                try {
+                    const response = await fetch('/api/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email, password })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (!response.ok) {
+                        errorDiv.textContent = data.error || 'Login failed';
+                        errorDiv.classList.remove('hidden');
+                    } else {
+                        console.log('Login successful:', data);
+                    }
+                } catch (error) {
+                    errorDiv.textContent = 'Network error occurred';
+                    errorDiv.classList.remove('hidden');
+                }
             }
     
             async function handleRegister() {
@@ -26,5 +44,24 @@ function showRegister() {
                 
                 errorDiv.classList.add('hidden');
                 
-                console.log('Register attempt:', name, email, password);
+                try {
+                    const response = await fetch('/api/register', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name, email, password })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (!response.ok) {
+                        errorDiv.textContent = data.error || 'Registration failed';
+                        errorDiv.classList.remove('hidden');
+                    } else {
+                        console.log('Registration successful:', data);
+                    }
+                } catch (error) {
+                    errorDiv.textContent = 'Network error occurred';
+                    errorDiv.classList.remove('hidden');
+                }
             }
+           
