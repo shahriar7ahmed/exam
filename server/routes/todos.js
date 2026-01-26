@@ -17,16 +17,15 @@ router.post('/', async (req, res) => {
     const todo = new Todo({ ...req.body, user: req.user._id });
     await todo.save();
     res.json(todo);
-}); 
+});
 router.put('/:id', async (req, res) => {
     const todo = await Todo.findOneAndUpdate(
-        { _id: req.params.id, user: req.user._id }, 
+        { _id: req.params.id, user: req.user._id },
         req.body,
         { new: true }
     );
     res.json(todo);
-}
-);
+});
 
 
 router.delete('/:id', async (req, res) => {
